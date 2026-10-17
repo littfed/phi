@@ -41,7 +41,24 @@ func buildRules(p Policy) (ruleSet, error) {
 		})
 	}
 	rs.ask = append(rs.ask, externalCallRules(p)...)
+	rs.addRules(p.Rules)
 	return rs, nil
+}
+
+// addRules files configured rules into their tiers, after the built-ins. An
+// unknown decision value lands in deny: a rule the gate cannot classify must
+// not end up permitting anything.
+func (rs *ruleSet) addRules(rules []Rule) {
+	for _, rule := range rules {
+		switch rule.Decision {
+		case Allow:
+			rs.allow = append(rs.allow, rule)
+		case Ask:
+			rs.ask = append(rs.ask, rule)
+		default:
+			rs.deny = append(rs.deny, rule)
+		}
+	}
 }
 
 // bashDenyRules compiles the hard denials in their configured order. They run

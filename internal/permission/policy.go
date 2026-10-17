@@ -71,6 +71,10 @@ type Policy struct {
 	SensitivePathDeny   []string // path prefixes
 	WorkspaceOnlyReads  bool     // if true, out-of-workspace reads deny
 	DangerouslyAllowAll bool     // skip all permission checks
+	// Rules are extra rules from config (see RuleSpec.Compile). They are filed
+	// by decision into the same tiers as the built-ins and run after them, so
+	// they can tighten a policy but never soften a built-in deny.
+	Rules []Rule
 }
 
 // DefaultPolicy returns the interactive defaults from task-002.
