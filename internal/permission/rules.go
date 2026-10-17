@@ -81,6 +81,17 @@ func AbsCleanAt(path, cwd string) (string, error) {
 	return filepath.Clean(filepath.Join(cwd, path)), nil
 }
 
+// NormalizePath prepares a tool-supplied path argument for gating: internal
+// URLs name remote resources, not files, so they stay verbatim; everything
+// else resolves absolute and cleaned against cwd.
+func NormalizePath(path, cwd string) (string, error) {
+	path = strings.TrimSpace(path)
+	if IsInternalURL(path) {
+		return path, nil
+	}
+	return AbsCleanAt(path, cwd)
+}
+
 // realPath resolves existing ancestors before appending a not-yet-created suffix.
 // Dangling links and other resolution errors fail closed.
 // This is a policy check, not protection against concurrent symlink replacement.

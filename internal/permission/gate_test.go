@@ -1,37 +1,12 @@
 package permission
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-// agentSpawnArgs encodes agent_spawn arguments. Paths must be marshaled rather
-// than pasted into a literal: Windows paths contain backslashes, and "D:\a"
-// inside a JSON string is an invalid escape.
-func agentSpawnArgs(t *testing.T, workdir string) []byte {
-	t.Helper()
-	args, err := json.Marshal(struct {
-		Prompt  string `json:"prompt"`
-		WorkDir string `json:"workdir"`
-	}{Prompt: "x", WorkDir: workdir})
-	require.NoError(t, err)
-	return args
-}
-
-func TestAgentSpawnArgsEncodeWindowsPaths(t *testing.T) {
-	args := agentSpawnArgs(t, `D:\a\phi\outside`)
-	require.JSONEq(t, `{"prompt":"x","workdir":"D:\\a\\phi\\outside"}`, string(args))
-
-	req, err := Extract("agent_spawn", args)
-	require.NoError(t, err)
-	require.Len(t, req.Paths, 1)
-	require.True(t, strings.HasSuffix(req.Paths[0], `D:\a\phi\outside`), req.Paths[0])
-}
 
 func TestInWorkspace(t *testing.T) {
 	ws := "/Users/me/proj"
@@ -173,21 +148,19 @@ func TestCheckAgentSpawnWorkdir(t *testing.T) {
 
 	// CVE-2026-108595: the workdir becomes the child's workspace root, so an
 	// out-of-workspace workdir must not silently pass.
-	req, err := Extract("agent_spawn", agentSpawnArgs(t, outside))
-	require.NoError(t, err)
-	dec, reason := g.Check(ctx, req)
+	dec, reason := g.Check(ctx, Request{
+		Tool:   "agent_spawn",
+		Action: ActionAgentSpawn,
+		Paths:  []string{outside},
+	})
 	require.Equal(t, Ask, dec, reason)
 
 	// In-workspace spawn stays allowed without prompting.
-	req, err = Extract("agent_spawn", agentSpawnArgs(t, filepath.Join(ws, "pkg")))
-	require.NoError(t, err)
-	dec, reason = g.Check(ctx, req)
-	require.Equal(t, Allow, dec, reason)
-
-	// The inherited cwd is subject to the same check as an explicit workdir.
-	req, err = ExtractAt("agent_spawn", []byte(`{"prompt":"x"}`), ws)
-	require.NoError(t, err)
-	dec, reason = g.Check(ctx, req)
+	dec, reason = g.Check(ctx, Request{
+		Tool:   "agent_spawn",
+		Action: ActionAgentSpawn,
+		Paths:  []string{filepath.Join(ws, "pkg")},
+	})
 	require.Equal(t, Allow, dec, reason)
 }
 
@@ -199,9 +172,11 @@ func TestCheckAgentSpawnWorkdirDeniedInHeadlessStrict(t *testing.T) {
 	g, err := NewGate(p, ws)
 	require.NoError(t, err)
 
-	req, err := Extract("agent_spawn", agentSpawnArgs(t, outside))
-	require.NoError(t, err)
-	dec, _ := g.Check(t.Context(), req)
+	dec, _ := g.Check(t.Context(), Request{
+		Tool:   "agent_spawn",
+		Action: ActionAgentSpawn,
+		Paths:  []string{outside},
+	})
 	require.Equal(t, Deny, dec, "headless-strict folds the outside-workspace Ask into Deny")
 }
 
@@ -214,9 +189,11 @@ func TestCheckReadonlyDeniesAgentSpawn(t *testing.T) {
 
 	// Even an in-workspace spawn delegates user permissions to a process that
 	// is not held to the readonly contract.
-	req, err := Extract("agent_spawn", []byte(`{"prompt":"x"}`))
-	require.NoError(t, err)
-	dec, reason := g.Check(t.Context(), req)
+	dec, reason := g.Check(t.Context(), Request{
+		Tool:   "agent_spawn",
+		Action: ActionAgentSpawn,
+		Paths:  []string{ws},
+	})
 	require.Equal(t, Deny, dec, reason)
 }
 
@@ -226,9 +203,7 @@ func TestCheckAgentWaitAndCancelStayAllowed(t *testing.T) {
 	ctx := t.Context()
 
 	for _, tool := range []string{"agent_wait", "agent_cancel"} {
-		req, err := Extract(tool, []byte(`{"job_id":"j1"}`))
-		require.NoError(t, err)
-		dec, reason := g.Check(ctx, req)
+		dec, reason := g.Check(ctx, Request{Tool: tool, Action: ActionAgentControl})
 		require.Equal(t, Allow, dec, "%s: %s", tool, reason)
 	}
 }

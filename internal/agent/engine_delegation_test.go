@@ -29,6 +29,33 @@ func (g delegationBashGate) Check(ctx context.Context, req permission.Request) (
 	return g.inner.Check(ctx, req)
 }
 
+// fakePermission declares the permission shape of the fake tools below, so the
+// gate sees the same request a real tool would build.
+func fakePermission(name string) tooldef.Permission {
+	return func(args json.RawMessage, cwd string) (permission.Request, error) {
+		var in map[string]string
+		if err := json.Unmarshal(args, &in); err != nil {
+			return permission.Request{}, err
+		}
+		switch name {
+		case "bash":
+			return permission.Request{Action: permission.ActionBash, Command: in["command"]}, nil
+		case "read", "write":
+			path, err := permission.NormalizePath(in["path"], cwd)
+			if err != nil {
+				return permission.Request{}, err
+			}
+			action := permission.ActionRead
+			if name == "write" {
+				action = permission.ActionWrite
+			}
+			return permission.Request{Action: action, Paths: []string{path}}, nil
+		default:
+			return permission.Request{Action: permission.ActionUnknown}, nil
+		}
+	}
+}
+
 func TestEngineRunnerInheritsParentGate(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
@@ -72,6 +99,7 @@ func TestEngineRunnerInheritsParentGate(t *testing.T) {
 				Gate:  tc.override,
 				Tools: []tooldef.Tool{{
 					Definition: llm.ToolDefinition{Name: tc.tool},
+					Permission: fakePermission(tc.tool),
 					Run: func(context.Context, json.RawMessage) (tooldef.Result, error) {
 						ran = true
 						return tooldef.Result{Content: "ran"}, nil

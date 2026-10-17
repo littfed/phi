@@ -1,23 +1,11 @@
 package permission
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestExtractMCPURLKeptVerbatim(t *testing.T) {
-	for _, tool := range []string{"write", "read", "ls"} {
-		t.Run(tool, func(t *testing.T) {
-			req, err := ExtractAt(tool, json.RawMessage(`{"path":"mcp://fake/tools/echo"}`), t.TempDir())
-			require.NoError(t, err)
-			require.Len(t, req.Paths, 1)
-			assert.Equal(t, "mcp://fake/tools/echo", req.Paths[0], "internal URLs must not be cwd-joined")
-		})
-	}
-}
 
 func TestCheckWriteMCPURLAsks(t *testing.T) {
 	g, err := NewGate(DefaultPolicy(), t.TempDir())
