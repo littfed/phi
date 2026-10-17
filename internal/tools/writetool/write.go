@@ -44,8 +44,8 @@ func WriteTool(pool *mcp.Pool) tooldef.Tool {
 			return runWrite(ctx, pool, in)
 		}),
 		tooldef.WithPermission(tooldef.Declaration[writeInput]{
-			Action: permission.ActionWrite,
-			Paths:  func(in writeInput) ([]string, error) { return []string{in.Path}, nil },
+			Kind:  permission.KindWrite,
+			Paths: func(in writeInput) ([]string, error) { return []string{in.Path}, nil },
 		}),
 	)
 }

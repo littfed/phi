@@ -28,12 +28,12 @@ func declaredTool(paths tooldef.Declaration[pathInput]) tooldef.Tool {
 
 func TestPermissionBindsActionAndCommand(t *testing.T) {
 	tool := declaredTool(tooldef.Declaration[pathInput]{
-		Action:  permission.ActionBash,
+		Kind:    permission.KindExec,
 		Command: func(in pathInput) string { return in.Command },
 	})
 	req, err := tool.Permission(json.RawMessage(`{"command":"git status"}`), "")
 	require.NoError(t, err)
-	assert.Equal(t, permission.ActionBash, req.Action)
+	assert.Equal(t, permission.KindExec, req.Kind)
 	assert.Equal(t, "git status", req.Command)
 	assert.Empty(t, req.Paths)
 }
@@ -41,8 +41,8 @@ func TestPermissionBindsActionAndCommand(t *testing.T) {
 func TestPermissionResolvesPathsAgainstCwd(t *testing.T) {
 	root := t.TempDir()
 	tool := declaredTool(tooldef.Declaration[pathInput]{
-		Action: permission.ActionWrite,
-		Paths:  func(in pathInput) ([]string, error) { return []string{in.Path}, nil },
+		Kind:  permission.KindWrite,
+		Paths: func(in pathInput) ([]string, error) { return []string{in.Path}, nil },
 	})
 	req, err := tool.Permission(json.RawMessage(`{"path":"out.txt"}`), root)
 	require.NoError(t, err)
@@ -51,8 +51,8 @@ func TestPermissionResolvesPathsAgainstCwd(t *testing.T) {
 
 func TestPermissionKeepsInternalURLsVerbatim(t *testing.T) {
 	tool := declaredTool(tooldef.Declaration[pathInput]{
-		Action: permission.ActionRead,
-		Paths:  func(in pathInput) ([]string, error) { return []string{in.Path}, nil },
+		Kind:  permission.KindRead,
+		Paths: func(in pathInput) ([]string, error) { return []string{in.Path}, nil },
 	})
 	req, err := tool.Permission(json.RawMessage(`{"path":"mcp://fake/tools/echo"}`), t.TempDir())
 	require.NoError(t, err)
@@ -65,19 +65,19 @@ func TestRegistryPermissionRequestSetsToolName(t *testing.T) {
 		tooldef.NewTool(
 			tooldef.WithDefinition(llmDefinition("read")),
 			tooldef.WithPermission(tooldef.Declaration[pathInput]{
-				Action: permission.ActionRead,
-				Paths:  func(in pathInput) ([]string, error) { return []string{in.Path}, nil },
+				Kind:  permission.KindRead,
+				Paths: func(in pathInput) ([]string, error) { return []string{in.Path}, nil },
 			}),
 		),
 	})
 	req, err := reg.PermissionRequest("read", json.RawMessage(`{"path":"a.go"}`), "")
 	require.NoError(t, err)
 	assert.Equal(t, "read", req.Tool)
-	assert.Equal(t, permission.ActionRead, req.Action)
+	assert.Equal(t, permission.KindRead, req.Kind)
 }
 
 // An undeclared tool — an extension tool, or a name that never registered —
-// must fall back to ActionUnknown so the gate asks instead of trusting the name.
+// must fall back to KindUnknown so the gate asks instead of trusting the name.
 func TestRegistryPermissionRequestUndeclaredToolIsUnknown(t *testing.T) {
 	reg := tooldef.NewRegistry([]tooldef.Tool{
 		tooldef.NewTool(tooldef.WithDefinition(llmDefinition("ext_tool"))),
@@ -86,7 +86,7 @@ func TestRegistryPermissionRequestUndeclaredToolIsUnknown(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			req, err := reg.PermissionRequest(name, json.RawMessage(`{}`), "")
 			require.NoError(t, err)
-			assert.Equal(t, permission.ActionUnknown, req.Action)
+			assert.Equal(t, permission.KindUnknown, req.Kind)
 			assert.Equal(t, name, req.Tool)
 			assert.Equal(t, name, permission.Summarize(req))
 		})
@@ -98,7 +98,7 @@ func TestRegistryPermissionRequestWrapsExtractionErrors(t *testing.T) {
 		tooldef.NewTool(
 			tooldef.WithDefinition(llmDefinition("write")),
 			tooldef.WithPermission(tooldef.Declaration[pathInput]{
-				Action: permission.ActionWrite,
+				Kind: permission.KindWrite,
 				Paths: func(pathInput) ([]string, error) {
 					return nil, assert.AnError
 				},
@@ -115,7 +115,7 @@ func TestRegistryPermissionRequestBadArgs(t *testing.T) {
 		tooldef.NewTool(
 			tooldef.WithDefinition(llmDefinition("bash")),
 			tooldef.WithPermission(tooldef.Declaration[pathInput]{
-				Action: permission.ActionBash,
+				Kind: permission.KindExec,
 			}),
 		),
 	})

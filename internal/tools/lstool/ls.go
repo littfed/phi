@@ -64,8 +64,8 @@ func LsTool(pool *mcp.Pool) tooldef.Tool {
 		// lsInput decodes both {"path":…} and a bare string, so the gate sees
 		// the same target the handler will list.
 		tooldef.WithPermission(tooldef.Declaration[lsInput]{
-			Action: permission.ActionLs,
-			Paths:  func(in lsInput) ([]string, error) { return []string{in.Path}, nil },
+			Kind:  permission.KindRead,
+			Paths: func(in lsInput) ([]string, error) { return []string{in.Path}, nil },
 		}),
 	)
 }

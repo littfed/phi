@@ -25,14 +25,14 @@ func TestDefaultToolsDeclarePermissionAction(t *testing.T) {
 		"find":  `{"pattern":"*.go"}`,
 		"ls":    `{"path":"."}`,
 	}
-	want := map[string]permission.Action{
-		"bash":  permission.ActionBash,
-		"read":  permission.ActionRead,
-		"write": permission.ActionWrite,
-		"edit":  permission.ActionEdit,
-		"grep":  permission.ActionGrep,
-		"find":  permission.ActionFind,
-		"ls":    permission.ActionLs,
+	want := map[string]permission.Kind{
+		"bash":  permission.KindExec,
+		"read":  permission.KindRead,
+		"write": permission.KindWrite,
+		"edit":  permission.KindWrite,
+		"grep":  permission.KindRead,
+		"find":  permission.KindRead,
+		"ls":    permission.KindRead,
 	}
 	reg := tooldef.NewRegistry(DefaultTools(nil))
 	require.Len(t, reg, len(want), "built-in tool set changed; update this table")
@@ -41,7 +41,7 @@ func TestDefaultToolsDeclarePermissionAction(t *testing.T) {
 			require.NotNil(t, reg[name].Permission, "%s must declare a permission action", name)
 			req, err := reg.PermissionRequest(name, json.RawMessage(args[name]), "")
 			require.NoError(t, err)
-			assert.Equal(t, action, req.Action)
+			assert.Equal(t, action, req.Kind)
 			assert.Equal(t, name, req.Tool)
 		})
 	}
@@ -93,7 +93,7 @@ func TestEditPermissionListsEveryTarget(t *testing.T) {
 		`{"payload":"*** SM:EDIT a.go\n*** SM:FIND\nx\n*** SM:PUT\ny\n*** SM:EDIT b.go\n*** SM:FIND\nx\n*** SM:PUT\ny\n"}`,
 	), root)
 	require.NoError(t, err)
-	assert.Equal(t, permission.ActionEdit, req.Action)
+	assert.Equal(t, permission.KindWrite, req.Kind)
 	require.Len(t, req.Paths, 2)
 	assert.Equal(t, filepath.Join(root, "a.go"), req.Paths[0])
 	assert.Equal(t, filepath.Join(root, "b.go"), req.Paths[1])

@@ -119,7 +119,7 @@ func EditTool() tooldef.Tool {
 		tooldef.WithDetail(editDetail),
 		tooldef.WithHandler(runEdit),
 		tooldef.WithPermission(tooldef.Declaration[editInput]{
-			Action: permission.ActionEdit,
+			Kind: permission.KindWrite,
 			Paths: func(in editInput) ([]string, error) {
 				targets := sloppy.TargetPaths(in.text())
 				if len(targets) == 0 {

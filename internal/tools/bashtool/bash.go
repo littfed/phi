@@ -46,7 +46,7 @@ func BashTool() tooldef.Tool {
 		tooldef.WithDetail(bashDetail),
 		tooldef.WithHandler(runBash),
 		tooldef.WithPermission(tooldef.Declaration[bashInput]{
-			Action:  permission.ActionBash,
+			Kind:    permission.KindExec,
 			Command: func(in bashInput) string { return strings.TrimSpace(in.Command) },
 		}),
 	)

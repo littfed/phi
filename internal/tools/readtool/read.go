@@ -62,8 +62,8 @@ func ReadTool(pool *mcp.Pool) tooldef.Tool {
 			return runRead(ctx, pool, in)
 		}),
 		tooldef.WithPermission(tooldef.Declaration[readInput]{
-			Action: permission.ActionRead,
-			Paths:  func(in readInput) ([]string, error) { return []string{in.Path}, nil },
+			Kind:  permission.KindRead,
+			Paths: func(in readInput) ([]string, error) { return []string{in.Path}, nil },
 		}),
 	)
 }

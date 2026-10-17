@@ -129,7 +129,7 @@ Concurrency cap: at most %d sub-agents run concurrently; spawning more fails (jo
 		}),
 		tooldef.WithDetail(spawnDetail),
 		tooldef.WithPermission(tooldef.Declaration[spawnInput]{
-			Action: permission.ActionAgentSpawn,
+			Kind: permission.KindDelegate,
 			// The workdir becomes the child's workspace root, so the gate must
 			// see it; an omitted workdir resolves to the session cwd.
 			Paths: func(in spawnInput) ([]string, error) { return []string{in.WorkDir}, nil },
@@ -248,7 +248,7 @@ Use agent_cancel to stop a running job.`,
 		// wait/cancel touch no path: controlling existing work is not a new
 		// permission surface.
 		tooldef.WithPermission(tooldef.Declaration[jobIDInput]{
-			Action: permission.ActionAgentControl,
+			Kind: permission.KindControl,
 		}),
 		tooldef.WithRun(func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
 			res, err := cfg.manager.HandleWait(ctx, input)
@@ -292,7 +292,7 @@ func agentCancelTool(cfg agentConfig) tooldef.Tool {
 		}),
 		tooldef.WithDetail(jobIDDetail),
 		tooldef.WithPermission(tooldef.Declaration[jobIDInput]{
-			Action: permission.ActionAgentControl,
+			Kind: permission.KindControl,
 		}),
 		tooldef.WithRun(func(ctx context.Context, input json.RawMessage) (tooldef.Result, error) {
 			if err := cfg.manager.HandleCancel(ctx, input); err != nil {

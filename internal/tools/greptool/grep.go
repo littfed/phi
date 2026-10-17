@@ -105,7 +105,7 @@ func GrepTool() tooldef.Tool {
 		tooldef.WithDetail(grepDetail),
 		tooldef.WithHandler(runGrep),
 		tooldef.WithPermission(tooldef.Declaration[grepInput]{
-			Action: permission.ActionGrep,
+			Kind: permission.KindRead,
 			// An omitted path searches cwd, which is the gate's business too.
 			Paths: func(in grepInput) ([]string, error) {
 				if strings.TrimSpace(in.Path) == "" {

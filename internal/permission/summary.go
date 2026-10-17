@@ -13,9 +13,9 @@ func Summarize(req Request) string {
 		return util.TruncateBytes(req.Command, 200, "…")
 	case len(req.Paths) > 0:
 		return strings.Join(req.Paths, ", ")
-	case req.Action == ActionUnknown:
+	case req.Kind == KindUnknown:
 		return req.Tool
 	default:
-		return string(req.Action)
+		return string(req.Kind)
 	}
 }

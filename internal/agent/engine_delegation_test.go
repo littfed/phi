@@ -23,7 +23,7 @@ type delegationBashGate struct {
 }
 
 func (g delegationBashGate) Check(ctx context.Context, req permission.Request) (permission.Decision, string) {
-	if req.Action == permission.ActionBash && req.Command == "echo restricted" {
+	if req.Kind == permission.KindExec && req.Command == "echo restricted" {
 		return g.decision, "parent custom bash policy"
 	}
 	return g.inner.Check(ctx, req)
@@ -39,19 +39,19 @@ func fakePermission(name string) tooldef.Permission {
 		}
 		switch name {
 		case "bash":
-			return permission.Request{Action: permission.ActionBash, Command: in["command"]}, nil
+			return permission.Request{Kind: permission.KindExec, Command: in["command"]}, nil
 		case "read", "write":
 			path, err := permission.NormalizePath(in["path"], cwd)
 			if err != nil {
 				return permission.Request{}, err
 			}
-			action := permission.ActionRead
+			action := permission.KindRead
 			if name == "write" {
-				action = permission.ActionWrite
+				action = permission.KindWrite
 			}
-			return permission.Request{Action: action, Paths: []string{path}}, nil
+			return permission.Request{Kind: action, Paths: []string{path}}, nil
 		default:
-			return permission.Request{Action: permission.ActionUnknown}, nil
+			return permission.Request{Kind: permission.KindUnknown}, nil
 		}
 	}
 }

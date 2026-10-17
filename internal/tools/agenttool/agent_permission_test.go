@@ -51,7 +51,7 @@ func TestAgentSpawnPermissionWorkdir(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req, err := reg["agent_spawn"].Permission(json.RawMessage(tc.args), root)
 			require.NoError(t, err)
-			assert.Equal(t, permission.ActionAgentSpawn, req.Action)
+			assert.Equal(t, permission.KindDelegate, req.Kind)
 			assert.Equal(t, []string{tc.want}, req.Paths)
 		})
 	}
@@ -85,7 +85,7 @@ func TestAgentControlToolsCarryNoPath(t *testing.T) {
 		t.Run(tool, func(t *testing.T) {
 			req, err := reg[tool].Permission(json.RawMessage(`{"job_id":"j1"}`), "")
 			require.NoError(t, err)
-			assert.Equal(t, permission.ActionAgentControl, req.Action)
+			assert.Equal(t, permission.KindControl, req.Kind)
 			assert.Empty(t, req.Paths)
 		})
 	}

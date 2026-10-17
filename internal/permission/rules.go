@@ -269,3 +269,22 @@ func isDevNullRedirect(cmd string, gt int) bool {
 	rest := strings.TrimSpace(cmd[j+1:])
 	return strings.HasPrefix(rest, "/dev/null")
 }
+
+// Multi-path calls reuse successful resolutions only until one Check returns.
+// A single-path call avoids allocating a cache; later calls always see fresh links.
+func requestPathResolver(pathCount int) func(string) (string, error) {
+	if pathCount <= 1 {
+		return realPath
+	}
+	resolved := make(map[string]string)
+	return func(path string) (string, error) {
+		if real, ok := resolved[path]; ok {
+			return real, nil
+		}
+		real, err := realPath(path)
+		if err == nil {
+			resolved[path] = real
+		}
+		return real, err
+	}
+}

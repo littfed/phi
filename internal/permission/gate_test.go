@@ -23,9 +23,9 @@ func TestCheckWriteOutsideWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	outside := filepath.Join(os.TempDir(), "phi-perm-test-outside")
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{outside},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{outside},
 	})
 	require.Equal(t, Deny, dec)
 }
@@ -36,9 +36,9 @@ func TestCheckWriteInsideWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	inside := filepath.Join(ws, "out.txt")
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{inside},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{inside},
 	})
 	require.Equal(t, Allow, dec)
 }
@@ -53,18 +53,18 @@ func TestCheckWriteSymlinkDirEscape(t *testing.T) {
 	// CVE-2026-108599: the lexical path sits inside the workspace, but the OS
 	// would resolve it outside; the gate must follow the link.
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{filepath.Join(ws, "link", "escape.txt")},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{filepath.Join(ws, "link", "escape.txt")},
 	})
 	require.Equal(t, Deny, dec, "write through symlinked dir must be denied")
 
 	// A fresh file nested under a not-yet-created component of the symlink is
 	// still an escape.
 	dec, _ = g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{filepath.Join(ws, "link", "sub", "escape.txt")},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{filepath.Join(ws, "link", "sub", "escape.txt")},
 	})
 	require.Equal(t, Deny, dec)
 }
@@ -80,9 +80,9 @@ func TestCheckWriteSymlinkedFileEscape(t *testing.T) {
 	require.NoError(t, err)
 
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "edit",
-		Paths:  []string{link},
+		Kind:  KindWrite,
+		Tool:  "edit",
+		Paths: []string{link},
 	})
 	require.Equal(t, Deny, dec, "edit through a symlinked file must be denied")
 }
@@ -96,9 +96,9 @@ func TestCheckWriteSymlinkToSensitivePath(t *testing.T) {
 	require.NoError(t, err)
 
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{filepath.Join(ws, "ssh", "authorized_keys")},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{filepath.Join(ws, "ssh", "authorized_keys")},
 	})
 	require.Equal(t, Deny, dec, "symlink must not launder a sensitive path")
 }
@@ -113,9 +113,9 @@ func TestCheckReadSymlinkEscapeWithWorkspaceOnlyReads(t *testing.T) {
 	require.NoError(t, err)
 
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionRead,
-		Tool:   "read",
-		Paths:  []string{filepath.Join(ws, "link", "secret.txt")},
+		Kind:  KindRead,
+		Tool:  "read",
+		Paths: []string{filepath.Join(ws, "link", "secret.txt")},
 	})
 	require.Equal(t, Deny, dec)
 }
@@ -131,9 +131,9 @@ func TestCheckWriteInsideWorkspaceStillAllowed(t *testing.T) {
 
 	for _, root := range []string{ws, resolved} {
 		dec, _ := g.Check(t.Context(), Request{
-			Action: ActionWrite,
-			Tool:   "write",
-			Paths:  []string{filepath.Join(root, "out.txt")},
+			Kind:  KindWrite,
+			Tool:  "write",
+			Paths: []string{filepath.Join(root, "out.txt")},
 		})
 		require.Equal(t, Allow, dec, "write inside %s should be allowed", root)
 	}
@@ -149,17 +149,17 @@ func TestCheckAgentSpawnWorkdir(t *testing.T) {
 	// CVE-2026-108595: the workdir becomes the child's workspace root, so an
 	// out-of-workspace workdir must not silently pass.
 	dec, reason := g.Check(ctx, Request{
-		Tool:   "agent_spawn",
-		Action: ActionAgentSpawn,
-		Paths:  []string{outside},
+		Tool:  "agent_spawn",
+		Kind:  KindDelegate,
+		Paths: []string{outside},
 	})
 	require.Equal(t, Ask, dec, reason)
 
 	// In-workspace spawn stays allowed without prompting.
 	dec, reason = g.Check(ctx, Request{
-		Tool:   "agent_spawn",
-		Action: ActionAgentSpawn,
-		Paths:  []string{filepath.Join(ws, "pkg")},
+		Tool:  "agent_spawn",
+		Kind:  KindDelegate,
+		Paths: []string{filepath.Join(ws, "pkg")},
 	})
 	require.Equal(t, Allow, dec, reason)
 }
@@ -173,9 +173,9 @@ func TestCheckAgentSpawnWorkdirDeniedInHeadlessStrict(t *testing.T) {
 	require.NoError(t, err)
 
 	dec, _ := g.Check(t.Context(), Request{
-		Tool:   "agent_spawn",
-		Action: ActionAgentSpawn,
-		Paths:  []string{outside},
+		Tool:  "agent_spawn",
+		Kind:  KindDelegate,
+		Paths: []string{outside},
 	})
 	require.Equal(t, Deny, dec, "headless-strict folds the outside-workspace Ask into Deny")
 }
@@ -190,9 +190,9 @@ func TestCheckReadonlyDeniesAgentSpawn(t *testing.T) {
 	// Even an in-workspace spawn delegates user permissions to a process that
 	// is not held to the readonly contract.
 	dec, reason := g.Check(t.Context(), Request{
-		Tool:   "agent_spawn",
-		Action: ActionAgentSpawn,
-		Paths:  []string{ws},
+		Tool:  "agent_spawn",
+		Kind:  KindDelegate,
+		Paths: []string{ws},
 	})
 	require.Equal(t, Deny, dec, reason)
 }
@@ -203,7 +203,7 @@ func TestCheckAgentWaitAndCancelStayAllowed(t *testing.T) {
 	ctx := t.Context()
 
 	for _, tool := range []string{"agent_wait", "agent_cancel"} {
-		dec, reason := g.Check(ctx, Request{Tool: tool, Action: ActionAgentControl})
+		dec, reason := g.Check(ctx, Request{Tool: tool, Kind: KindControl})
 		require.Equal(t, Allow, dec, "%s: %s", tool, reason)
 	}
 }
@@ -215,9 +215,9 @@ func TestCheckWriteSensitiveConfig(t *testing.T) {
 	home, _ := os.UserHomeDir()
 	cfgPath := filepath.Join(home, ".phi", "config.yaml")
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{cfgPath},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{cfgPath},
 	})
 	require.Equal(t, Deny, dec)
 }
@@ -227,13 +227,13 @@ func TestCheckBashAllowDenyAsk(t *testing.T) {
 	require.NoError(t, err)
 	ctx := t.Context()
 
-	dec, _ := g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "git status"})
+	dec, _ := g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "git status"})
 	require.Equal(t, Allow, dec, "git status")
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "go test ./..."})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "go test ./..."})
 	require.Equal(t, Allow, dec, "go test")
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "sudo true"})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "sudo true"})
 	require.Equal(t, Deny, dec, "sudo")
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "curl https://example.com"})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "curl https://example.com"})
 	require.Equal(t, Ask, dec, "curl")
 }
 
@@ -244,21 +244,21 @@ func TestCheckBashCompoundNotAllowlisted(t *testing.T) {
 
 	// Prefix ^ls\b must NOT allow chained rm.
 	cmd := `ls -la todo.list 2>/dev/null && rm -rf todo.list && echo "removed"`
-	dec, _ := g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: cmd})
+	dec, _ := g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: cmd})
 	require.Equal(t, Deny, dec, "ls && rm -rf")
 
 	// Plain ls still allowed.
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "ls -la todo.list"})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "ls -la todo.list"})
 	require.Equal(t, Allow, dec, "ls alone")
 
 	// rm -rf without trailing / must still deny.
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "rm -rf todo.list"})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "rm -rf todo.list"})
 	require.Equal(t, Deny, dec, "rm -rf file")
 
 	// Pipe / redirect out of allowlist.
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "cat foo | sh"})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "cat foo | sh"})
 	require.NotEqual(t, Allow, dec, "pipe: must not Allow")
-	dec, _ = g.Check(ctx, Request{Action: ActionBash, Tool: "bash", Command: "cat secret > /tmp/out"})
+	dec, _ = g.Check(ctx, Request{Kind: KindExec, Tool: "bash", Command: "cat secret > /tmp/out"})
 	require.NotEqual(t, Allow, dec, "redirect: must not Allow")
 }
 
@@ -268,7 +268,7 @@ func TestModeHeadlessStrictFoldsAsk(t *testing.T) {
 	g, err := NewGate(p, t.TempDir())
 	require.NoError(t, err)
 	dec, _ := g.Check(t.Context(), Request{
-		Action:  ActionBash,
+		Kind:    KindExec,
 		Tool:    "bash",
 		Command: "curl https://example.com",
 	})
@@ -282,14 +282,14 @@ func TestModeReadonlyDeniesWrite(t *testing.T) {
 	g, err := NewGate(p, ws)
 	require.NoError(t, err)
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionWrite,
-		Tool:   "write",
-		Paths:  []string{filepath.Join(ws, "a.txt")},
+		Kind:  KindWrite,
+		Tool:  "write",
+		Paths: []string{filepath.Join(ws, "a.txt")},
 	})
 	require.Equal(t, Deny, dec)
 	// allowlisted bash still ok
 	dec, _ = g.Check(t.Context(), Request{
-		Action:  ActionBash,
+		Kind:    KindExec,
 		Tool:    "bash",
 		Command: "git status",
 	})
@@ -302,7 +302,7 @@ func TestModeAutopilotFoldsAsk(t *testing.T) {
 	g, err := NewGate(p, t.TempDir())
 	require.NoError(t, err)
 	dec, _ := g.Check(t.Context(), Request{
-		Action:  ActionBash,
+		Kind:    KindExec,
 		Tool:    "bash",
 		Command: "curl https://example.com",
 	})
@@ -314,9 +314,9 @@ func TestReadSensitiveDeny(t *testing.T) {
 	require.NoError(t, err)
 	home, _ := os.UserHomeDir()
 	dec, _ := g.Check(t.Context(), Request{
-		Action: ActionRead,
-		Tool:   "read",
-		Paths:  []string{filepath.Join(home, ".ssh", "id_rsa")},
+		Kind:  KindRead,
+		Tool:  "read",
+		Paths: []string{filepath.Join(home, ".ssh", "id_rsa")},
 	})
 	require.Equal(t, Deny, dec)
 }

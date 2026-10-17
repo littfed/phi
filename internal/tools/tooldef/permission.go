@@ -12,11 +12,12 @@ import (
 // so internal/permission never names a tool or decodes its arguments.
 type Permission func(args json.RawMessage, cwd string) (permission.Request, error)
 
-// Declaration is the declarative half of the wiring: which action a tool
-// performs, and where its command / paths live in its arguments. A tool states
-// what it does; policy (allow / ask / deny) stays outside the tool package.
+// Declaration is the declarative half of the wiring: which kind of operation a
+// tool performs, and where its command / paths live in its arguments. A tool
+// states what it does; policy (allow / ask / deny) stays outside the tool
+// package.
 type Declaration[Args any] struct {
-	Action permission.Action
+	Kind permission.Kind
 	// Command returns the shell command an exec-like tool is about to run.
 	Command func(Args) string
 	// Paths returns the file paths or internal URLs a call touches. Relative
@@ -30,7 +31,7 @@ type Declaration[Args any] struct {
 func WithPermission[Args any](decl Declaration[Args]) ToolOption {
 	return func(tool *Tool) {
 		tool.Permission = func(args json.RawMessage, cwd string) (permission.Request, error) {
-			req := permission.Request{Action: decl.Action}
+			req := permission.Request{Kind: decl.Kind}
 			var in Args
 			if err := json.Unmarshal(args, &in); err != nil {
 				return req, err
@@ -67,11 +68,11 @@ func (r Registry) PermissionRequest(
 ) (permission.Request, error) {
 	tool, ok := r[name]
 	if !ok || tool.Permission == nil {
-		return permission.Request{Tool: name, Action: permission.ActionUnknown}, nil
+		return permission.Request{Tool: name, Kind: permission.KindUnknown}, nil
 	}
 	req, err := tool.Permission(args, cwd)
 	if err != nil {
-		return permission.Request{Tool: name, Action: permission.ActionUnknown}, fmt.Errorf("%s: %w", name, err)
+		return permission.Request{Tool: name, Kind: permission.KindUnknown}, fmt.Errorf("%s: %w", name, err)
 	}
 	req.Tool = name
 	return req, nil

@@ -61,7 +61,7 @@ func FindTool() tooldef.Tool {
 		tooldef.WithDetail(findDetail),
 		tooldef.WithHandler(runFind),
 		tooldef.WithPermission(tooldef.Declaration[findInput]{
-			Action: permission.ActionFind,
+			Kind: permission.KindRead,
 			// An omitted path searches cwd, which is the gate's business too.
 			Paths: func(in findInput) ([]string, error) {
 				if strings.TrimSpace(in.Path) == "" {

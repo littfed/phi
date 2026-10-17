@@ -8,7 +8,7 @@ import (
 )
 
 // An undeclared tool must not be able to pick its own permission tier: the
-// request stays ActionUnknown, which asks (and folds to deny where Ask is
+// request stays KindUnknown, which asks (and folds to deny where Ask is
 // unavailable).
 func TestUnknownActionAsksInEveryMode(t *testing.T) {
 	root := t.TempDir()
@@ -19,7 +19,7 @@ func TestUnknownActionAsksInEveryMode(t *testing.T) {
 			gate, err := NewGate(policy, root)
 			require.NoError(t, err)
 			for _, tool := range []string{"agent_control", "custom_tool"} {
-				req := Request{Tool: tool, Action: ActionUnknown}
+				req := Request{Tool: tool, Kind: KindUnknown}
 				require.Equal(t, tool, Summarize(req))
 				want := Ask
 				wantReason := fmt.Sprintf("unknown action %q requires approval", tool)

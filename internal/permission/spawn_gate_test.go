@@ -19,9 +19,9 @@ func TestSpawnChecksInheritedDirectory(t *testing.T) {
 			require.NoError(t, err)
 
 			dec, reason := gate.Check(t.Context(), Request{
-				Tool:   "agent_spawn",
-				Action: ActionAgentSpawn,
-				Paths:  []string{outside},
+				Tool:  "agent_spawn",
+				Kind:  KindDelegate,
+				Paths: []string{outside},
 			})
 			expected := Deny
 			if mode == ModeInteractive {
@@ -30,7 +30,7 @@ func TestSpawnChecksInheritedDirectory(t *testing.T) {
 			require.Equal(t, expected, dec, reason)
 
 			for _, tool := range []string{"agent_wait", "agent_cancel"} {
-				dec, reason := gate.Check(t.Context(), Request{Tool: tool, Action: ActionAgentControl})
+				dec, reason := gate.Check(t.Context(), Request{Tool: tool, Kind: KindControl})
 				require.Equal(t, Allow, dec, reason)
 			}
 		})
