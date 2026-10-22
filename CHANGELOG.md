@@ -8,6 +8,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- Gemini: send `thinkingConfig` inside `generationConfig`, matching the
+  Generative Language REST schema. A top-level field made every Gemini
+  request fail with `400: Unknown name "thinkingConfig"`.
+
 ### Added
 
 ## [0.29.1] - 2026-10-22
