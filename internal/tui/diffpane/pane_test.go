@@ -3,6 +3,8 @@ package diffpane
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/pulseaiclub/xui"
@@ -133,6 +135,10 @@ func TestChangeMetadataAndExactCommentPaths(t *testing.T) {
 		{"line\nfile", "content\n", "content"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
+			// Windows has no filename that can carry a control character.
+			if runtime.GOOS == "windows" && strings.ContainsAny(tc.path, "\n\r") {
+				t.Skip("windows rejects a newline in a filename")
+			}
 			require.NoError(t, os.WriteFile(filepath.Join(dir, tc.path), []byte(tc.content), 0o600))
 			p.OpenChange(dir, gitx.Change{Status: '?', Path: tc.path})
 			require.Empty(t, p.err)

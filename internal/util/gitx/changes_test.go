@@ -65,7 +65,8 @@ func TestChangesFromSubdirectory(t *testing.T) {
 	require.NoError(t, err)
 	resolved, err := filepath.EvalSymlinks(dir)
 	require.NoError(t, err)
-	assert.Equal(t, resolved, root)
+	// git prints forward slashes even on windows, so compare separator-insensitively.
+	assert.Equal(t, filepath.ToSlash(resolved), filepath.ToSlash(root))
 	assert.Equal(t, []Change{
 		{Path: "both", Status: 'M'},
 		{Path: "sub/new", Status: '?'},

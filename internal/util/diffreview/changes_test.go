@@ -3,6 +3,8 @@ package diffreview
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +16,11 @@ import (
 func TestLoadChangeLiteralPaths(t *testing.T) {
 	for _, path := range []string{"HEAD", "-option", "[a].txt", "space file", "line\nfile"} {
 		t.Run(path, func(t *testing.T) {
+			// Windows has no filename that can carry a control character, so only
+			// the newline case is unreachable there.
+			if runtime.GOOS == "windows" && strings.ContainsAny(path, "\n\r") {
+				t.Skip("windows rejects a newline in a filename")
+			}
 			dir := newGitRepo(t)
 			write := func(name, body string) {
 				require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600))
@@ -91,6 +98,11 @@ func TestLoadChangeRenameAndMode(t *testing.T) {
 	assert.Contains(t, text, "rename from old")
 	assert.Contains(t, text, "rename to new")
 	runGit(t, dir, "git", "commit", "-m", "rename")
+	if runtime.GOOS == "windows" {
+		// NTFS has no executable bit, so git never reports a mode change for a
+		// chmod there and the assertion below cannot hold.
+		t.Skip("windows does not record file modes")
+	}
 	require.NoError(t, os.Chmod(filepath.Join(dir, "new"), 0o755))
 	text, err = LoadChange(t.Context(), root, gitx.Change{Path: "new"})
 	require.NoError(t, err)
