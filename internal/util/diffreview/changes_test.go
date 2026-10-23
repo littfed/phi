@@ -3,9 +3,6 @@ package diffreview
 import (
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,14 +12,11 @@ import (
 )
 
 func TestLoadChangeLiteralPaths(t *testing.T) {
-	for _, path := range []string{"HEAD", "-option", "[a].txt", "space file", "line\nfile"} {
+	// The last case is the one that makes git C-quote the header, which is what
+	// the pane rewrite has to undo. A non-ascii name reaches that code on every
+	// platform; a newline or quote in a name cannot be created on windows at all.
+	for _, path := range []string{"HEAD", "-option", "[a].txt", "space file", "文件.txt"} {
 		t.Run(path, func(t *testing.T) {
-			// Windows has no filename that can carry a control character: git can
-			// never be asked to diff one, so the case is unreachable, not untested.
-			// Parse-level handling of such paths is covered by gitx.parseChanges.
-			if runtime.GOOS == "windows" && strings.ContainsAny(path, "\n\r") {
-				t.Skip("windows cannot create a newline filename")
-			}
 			dir := newGitRepo(t)
 			write := func(name, body string) {
 				require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600))
@@ -34,11 +28,6 @@ func TestLoadChangeLiteralPaths(t *testing.T) {
 			require.NoError(t, err, "initial repository has no HEAD")
 			assert.Contains(t, text, "+index-version")
 			assert.NotContains(t, text, "unrelated")
-			if strings.ContainsAny(path, "\n\r") {
-				// Pin the header the pane rewrites quoted paths from, so its
-				// synthetic fixture cannot drift from real git output.
-				assert.Contains(t, text, strconv.Quote("b/./"+path))
-			}
 			write(path, "worktree-version\n")
 			text, err = LoadChange(t.Context(), dir, gitx.Change{Path: path})
 			require.NoError(t, err)

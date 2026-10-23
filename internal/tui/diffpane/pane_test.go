@@ -131,6 +131,7 @@ func TestChangeMetadataAndExactCommentPaths(t *testing.T) {
 		{"empty", "", "Empty file"},
 		{"binary", "\x00\x01", "Binary files"},
 		{"space file", "content\n", "content"},
+		{"文件.txt", "content\n", "content"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, tc.path), []byte(tc.content), 0o600))
