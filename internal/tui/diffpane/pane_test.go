@@ -3,8 +3,7 @@ package diffpane
 import (
 	"os"
 	"path/filepath"
-	"runtime"
-	"strings"
+	"strconv"
 	"testing"
 
 	"github.com/pulseaiclub/xui"
@@ -132,13 +131,8 @@ func TestChangeMetadataAndExactCommentPaths(t *testing.T) {
 		{"empty", "", "Empty file"},
 		{"binary", "\x00\x01", "Binary files"},
 		{"space file", "content\n", "content"},
-		{"line\nfile", "content\n", "content"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			// Windows has no filename that can carry a control character.
-			if runtime.GOOS == "windows" && strings.ContainsAny(tc.path, "\n\r") {
-				t.Skip("windows rejects a newline in a filename")
-			}
 			require.NoError(t, os.WriteFile(filepath.Join(dir, tc.path), []byte(tc.content), 0o600))
 			p.OpenChange(dir, gitx.Change{Status: '?', Path: tc.path})
 			require.Empty(t, p.err)
@@ -190,4 +184,44 @@ func TestChangeNotesAndBackNavigation(t *testing.T) {
 	p.OpenChange(dir, b)
 	require.Len(t, p.drafts, 1)
 	assert.Equal(t, "note for b", p.drafts[0].Body)
+}
+
+// TestChangeQuotedPathKeepsExactCommentPath covers the control-character path
+// without a control-character file: neither windows nor the filesystem is
+// needed, because git's C-quoted header is what the rewrite consumes.
+func TestChangeQuotedPathKeepsExactCommentPath(t *testing.T) {
+	path := "line\nfile"
+	// Byte-for-byte what `git diff --no-index /dev/null "./line\nfile"` prints.
+	quoted := `diff --git "a/./line\nfile" "b/./line\nfile"` + "\n" +
+		"new file mode 100644\n" +
+		"index 0000000..d95f3ad\n" +
+		"--- /dev/null\n" +
+		`+++ "b/./line\nfile"` + "\n" +
+		"@@ -0,0 +1 @@\n" +
+		"+content\n"
+	p := New(components.DefaultTheme(), t.TempDir(), nil, nil, nil)
+	p.change = &gitx.Change{Status: '?', Path: path}
+	p.openParsed(quoted, "", true)
+	require.Empty(t, p.err)
+	require.NotEmpty(t, p.rows)
+	anchored := 0
+	for _, row := range p.rows {
+		assert.Equal(t, path, row.FileName, "the quoted form must not reach the status bar")
+		if diffreview.AnchorValid(row.Review) {
+			assert.Equal(t, path, row.Review.Path, "comments must anchor on the status path")
+			anchored++
+		}
+	}
+	require.NotZero(t, anchored, "the fixture must produce a commentable row")
+}
+
+// TestChangeControlCharPathIsQuotedInLabel keeps the label quoting covered on
+// every platform; the file is absent on all of them, so the load error is part
+// of the expectation rather than an accident.
+func TestChangeControlCharPathIsQuotedInLabel(t *testing.T) {
+	path := "line\nfile"
+	p := New(components.DefaultTheme(), t.TempDir(), nil, nil, nil)
+	p.OpenChange(p.cwd, gitx.Change{Status: '?', Path: path})
+	assert.Equal(t, strconv.Quote(path), p.label)
+	assert.NotEmpty(t, p.err)
 }

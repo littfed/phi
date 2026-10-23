@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -16,10 +17,11 @@ import (
 func TestLoadChangeLiteralPaths(t *testing.T) {
 	for _, path := range []string{"HEAD", "-option", "[a].txt", "space file", "line\nfile"} {
 		t.Run(path, func(t *testing.T) {
-			// Windows has no filename that can carry a control character, so only
-			// the newline case is unreachable there.
+			// Windows has no filename that can carry a control character: git can
+			// never be asked to diff one, so the case is unreachable, not untested.
+			// Parse-level handling of such paths is covered by gitx.parseChanges.
 			if runtime.GOOS == "windows" && strings.ContainsAny(path, "\n\r") {
-				t.Skip("windows rejects a newline in a filename")
+				t.Skip("windows cannot create a newline filename")
 			}
 			dir := newGitRepo(t)
 			write := func(name, body string) {
@@ -32,6 +34,11 @@ func TestLoadChangeLiteralPaths(t *testing.T) {
 			require.NoError(t, err, "initial repository has no HEAD")
 			assert.Contains(t, text, "+index-version")
 			assert.NotContains(t, text, "unrelated")
+			if strings.ContainsAny(path, "\n\r") {
+				// Pin the header the pane rewrites quoted paths from, so its
+				// synthetic fixture cannot drift from real git output.
+				assert.Contains(t, text, strconv.Quote("b/./"+path))
+			}
 			write(path, "worktree-version\n")
 			text, err = LoadChange(t.Context(), dir, gitx.Change{Path: path})
 			require.NoError(t, err)
@@ -98,12 +105,10 @@ func TestLoadChangeRenameAndMode(t *testing.T) {
 	assert.Contains(t, text, "rename from old")
 	assert.Contains(t, text, "rename to new")
 	runGit(t, dir, "git", "commit", "-m", "rename")
-	if runtime.GOOS == "windows" {
-		// NTFS has no executable bit, so git never reports a mode change for a
-		// chmod there and the assertion below cannot hold.
-		t.Skip("windows does not record file modes")
-	}
-	require.NoError(t, os.Chmod(filepath.Join(dir, "new"), 0o755))
+	// Record the mode in the index: os.Chmod needs an executable bit, which NTFS
+	// does not have, and core.fileMode=false (the fixture default) would ignore
+	// the stat cache anyway.
+	runGit(t, dir, "git", "update-index", "--chmod=+x", "new")
 	text, err = LoadChange(t.Context(), root, gitx.Change{Path: "new"})
 	require.NoError(t, err)
 	assert.Contains(t, text, "new mode 100755")
