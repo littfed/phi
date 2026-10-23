@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/pulseaiclub/phi/internal/components"
+	"github.com/pulseaiclub/phi/internal/util/diffreview"
+	"github.com/pulseaiclub/phi/internal/util/gitx"
 )
 
 const sampleDiff = `diff --git a/main.go b/main.go
@@ -119,4 +121,67 @@ func TestPaneEmptyNoteNamesUntrackedPath(t *testing.T) {
 	p.OpenText("", []string{"@new.go"})
 	surf := p.Draw(components.DrawContext{Max: components.Size{Width: 80, Height: 24}, Method: xui.WidthUnicode})
 	assert.Contains(t, components.SurfaceText(surf), "new.go is untracked")
+}
+
+func TestChangeMetadataAndExactCommentPaths(t *testing.T) {
+	dir := t.TempDir()
+	p := New(components.DefaultTheme(), dir, nil, nil, nil)
+	for _, tc := range []struct{ path, content, want string }{
+		{"empty", "", "Empty file"},
+		{"binary", "\x00\x01", "Binary files"},
+		{"space file", "content\n", "content"},
+		{"line\nfile", "content\n", "content"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			require.NoError(t, os.WriteFile(filepath.Join(dir, tc.path), []byte(tc.content), 0o600))
+			p.OpenChange(dir, gitx.Change{Status: '?', Path: tc.path})
+			require.Empty(t, p.err)
+			text := components.SurfaceText(p.Draw(components.DrawContext{
+				Max: components.Size{Width: 100, Height: 30}, Method: xui.WidthUnicode,
+			}))
+			assert.Contains(t, text, tc.want)
+			for _, row := range p.rows {
+				if diffreview.AnchorValid(row.Review) {
+					assert.Equal(t, tc.path, row.Review.Path)
+				}
+			}
+		})
+	}
+}
+
+func TestChangeNotesAndBackNavigation(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a"), []byte("content\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b"), []byte("other\n"), 0o600))
+	var submitted string
+	p := New(components.DefaultTheme(), dir, func(s string) { submitted = s }, nil, nil)
+	a := gitx.Change{Status: '?', Path: "a"}
+	b := gitx.Change{Status: '?', Path: "b"}
+	p.OpenChange(dir, a)
+	require.Empty(t, p.err)
+	p.drafts = []diffreview.CommentDraft{{Body: "note for a"}}
+	p.OpenChange(dir, b)
+	assert.Empty(t, p.drafts)
+	p.drafts = []diffreview.CommentDraft{{Body: "note for b"}}
+	p.OpenChange(dir, a)
+	require.Len(t, p.drafts, 1)
+	assert.Equal(t, "note for a", p.drafts[0].Body)
+
+	p.Handle(&components.EventContext{}, xui.KeyEvent{Press: true, Code: xui.KeyRune, Rune: 'r'})
+	assert.Equal(t, a, *p.change)
+	require.Empty(t, p.err)
+	require.Len(t, p.drafts, 1)
+	p.Handle(&components.EventContext{}, xui.KeyEvent{Press: true, Code: xui.KeyEscape})
+	assert.True(t, p.ReturnToList())
+	p.OpenChange(dir, a)
+	assert.False(t, p.ReturnToList())
+	p.sendToAgent()
+	assert.False(t, p.ReturnToList())
+	assert.Contains(t, submitted, "note for a")
+
+	p.OpenText(sampleDiff, nil)
+	assert.Empty(t, p.drafts, "explicit diff must not inherit a selected change's notes")
+	p.OpenChange(dir, b)
+	require.Len(t, p.drafts, 1)
+	assert.Equal(t, "note for b", p.drafts[0].Body)
 }
